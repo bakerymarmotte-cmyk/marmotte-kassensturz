@@ -1,0 +1,93 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Hilfsfunktionen ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function me() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    // Nur wer ein aktives Profil hat, darf überhaupt etwas tun
+    function isActive() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             me().get('active', true) != false;
+    }
+    function isAdmin() {
+      return isActive() && me().role == 'admin';
+    }
+
+    // Anzahl pro Stückelung: ganze Zahl, nicht negativ
+    function anzahlOk(a, k) {
+      return a[k] is int && a[k] >= 0 && a[k] <= 99999;
+    }
+    // Prüft alle Stückelungen und dass das Total exakt stimmt (alles in Rappen).
+    // Neue Stückelung? Hier UND in geld.js ergänzen.
+    function summeOk(d) {
+      let a = d.anzahl;
+      return a.keys().hasOnly(['10000','5000','2000','1000','500','200','100','50','20','10','5']) &&
+             a.keys().hasAll(['10000','5000','2000','1000','500','200','100','50','20','10','5']) &&
+             anzahlOk(a,'10000') && anzahlOk(a,'5000') && anzahlOk(a,'2000') && anzahlOk(a,'1000') &&
+             anzahlOk(a,'500') && anzahlOk(a,'200') && anzahlOk(a,'100') && anzahlOk(a,'50') &&
+             anzahlOk(a,'20') && anzahlOk(a,'10') && anzahlOk(a,'5') &&
+             d.total == a['10000']*10000 + a['5000']*5000 + a['2000']*2000 + a['1000']*1000 +
+                        a['500']*500 + a['200']*200 + a['100']*100 + a['50']*50 +
+                        a['20']*20 + a['10']*10 + a['5']*5;
+    }
+
+    // ---------- Personen ----------
+    match /users/{userId} {
+      // Jede Person sieht ihr eigenes Profil, der Admin alle
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAdmin();
+      // Admin darf alles ändern. Die Person selbst darf nur mustChangePassword zurücksetzen.
+      allow update: if isAdmin() ||
+                      (isSignedIn() && request.auth.uid == userId &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mustChangePassword']) &&
+                       request.resource.data.mustChangePassword == false);
+      allow delete: if false;
+    }
+
+    // ---------- Kassen ----------
+    match /kassen/{kasseId} {
+      allow read: if isActive();
+      allow create, update: if isAdmin() &&
+                              request.resource.data.name is string &&
+                              request.resource.data.name.size() > 0 &&
+                              request.resource.data.stock is int &&
+                              request.resource.data.stock >= 0;
+      // Nie löschen, nur deaktivieren – sonst fehlt die Kasse im Verlauf
+      allow delete: if false;
+    }
+
+    // ---------- Zählungen ----------
+    match /zaehlungen/{id} {
+      // Admin sieht alle, Mitarbeitende nur ihre eigenen
+      allow read: if isAdmin() || (isActive() && resource.data.uid == request.auth.uid);
+
+      // Beim Speichern wird alles geprüft:
+      // - gezählt von der angemeldeten Person, Zeitpunkt vom Server
+      // - Kasse existiert, ist aktiv, Stock und Name entsprechen der Kasse
+      // - Total und Differenz sind korrekt gerechnet
+      allow create: if isActive() &&
+        request.resource.data.keys().hasOnly(['kasseId','kasseName','stock','anzahl','total','differenz','bemerkung','uid','userName','createdAt']) &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.createdAt == request.time &&
+        exists(/databases/$(database)/documents/kassen/$(request.resource.data.kasseId)) &&
+        get(/databases/$(database)/documents/kassen/$(request.resource.data.kasseId)).data.get('active', true) != false &&
+        request.resource.data.stock == get(/databases/$(database)/documents/kassen/$(request.resource.data.kasseId)).data.stock &&
+        request.resource.data.kasseName == get(/databases/$(database)/documents/kassen/$(request.resource.data.kasseId)).data.name &&
+        summeOk(request.resource.data) &&
+        request.resource.data.differenz == request.resource.data.total - request.resource.data.stock &&
+        request.resource.data.bemerkung is string && request.resource.data.bemerkung.size() <= 300 &&
+        request.resource.data.userName == me().name;
+
+      // Gespeicherte Zählungen können nicht geändert werden.
+      // Nur der Admin darf eine Zählung endgültig löschen.
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+  }
+}

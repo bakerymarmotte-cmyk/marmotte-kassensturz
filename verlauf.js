@@ -1,9 +1,9 @@
 import { db } from "./firebase-config.js";
 import {
-  collection, query, where, orderBy, limit, startAfter, getDocs,
+  collection, query, where, orderBy, limit, startAfter, getDocs, deleteDoc, doc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { ALLE, chf, chfDiff, esc, datumZeit } from "./geld.js";
-import { openModal, closeModal } from "./ui.js";
+import { openModal, closeModal, toast } from "./ui.js";
 
 const SEITE = 30; // Zählungen pro Ladevorgang
 
@@ -92,8 +92,31 @@ export function initVerlauf(session) {
           <tr><td>Stock</td><td></td><td class="mono r">${chf(z.stock)}</td></tr>
           <tr class="${z.differenz > 0 ? "txt-plus" : z.differenz < 0 ? "txt-minus" : ""}"><td>Differenz</td><td></td><td class="mono r"><strong>${chfDiff(z.differenz)}</strong></td></tr>
         </tfoot>
-      </table>`;
+      </table>
+      ${isAdmin ? `<button class="btn btn-danger" id="detail-delete" style="width:100%; margin-top:16px;"><i data-icon="trash-2" data-size="16"></i> Zählung löschen</button>` : ""}`;
+    if (isAdmin) {
+      document.getElementById("detail-delete").addEventListener("click", () => loesche(z));
+    }
     openModal("detail-modal");
+  }
+
+  // Nur Admin: Zählung endgültig löschen (die Regeln erlauben es niemandem sonst)
+  async function loesche(z) {
+    const text = `Zählung «${z.kasseName}» vom ${datumZeit(z.createdAt)} über ${chf(z.total)} endgültig löschen?\n\nDas kann nicht rückgängig gemacht werden.`;
+    if (!confirm(text)) return;
+    const btn = document.getElementById("detail-delete");
+    btn.disabled = true;
+    try {
+      await deleteDoc(doc(db, "zaehlungen", z.id));
+      eintraege = eintraege.filter((e) => e.id !== z.id);
+      render();
+      closeModal("detail-modal");
+      toast("Zählung gelöscht");
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false;
+      toast("Löschen fehlgeschlagen");
+    }
   }
   document.getElementById("detail-close").addEventListener("click", () => closeModal("detail-modal"));
 
