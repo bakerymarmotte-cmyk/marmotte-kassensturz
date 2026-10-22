@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Marmotte Kassensturz</title>
+<link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+<link rel="apple-touch-icon" sizes="120x120" href="assets/apple-touch-icon-120.png">
+<link rel="apple-touch-icon" sizes="152x152" href="assets/apple-touch-icon-152.png">
+<link rel="apple-touch-icon" sizes="167x167" href="assets/apple-touch-icon-167.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon-180.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#f5f4f2">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kassensturz">
+<link rel="stylesheet" href="https://bakerymarmotte-cmyk.github.io/marmotte-design/marmotte.css">
+<link rel="stylesheet" href="style.css">
+<script src="https://bakerymarmotte-cmyk.github.io/marmotte-design/theme.js"></script>
+<script src="https://bakerymarmotte-cmyk.github.io/marmotte-design/icons.js" defer></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-logo"><i data-icon="croissant"></i></div>
+    <div>
+      <div class="brand-name">Marmotte</div>
+      <div class="brand-sub">Kassensturz</div>
+    </div>
+  </div>
+  <div class="who">
+    <span class="name" id="user-name-label"></span>
+    <button class="m-theme-btn" data-theme-toggle aria-label="Hell/Dunkel umschalten"></button>
+    <button class="logout-btn" id="logout-btn" aria-label="Abmelden"><i data-icon="log-out" data-size="16"></i></button>
+  </div>
+</div>
+
+<div class="nav-wrap">
+<nav class="main-nav" id="main-nav">
+  <button data-tab="zaehlen" class="active"><span class="icon"><i data-icon="coins"></i></span>Zählen</button>
+  <button data-tab="verlauf"><span class="icon"><i data-icon="history"></i></span>Verlauf</button>
+  <button data-tab="kassen" class="admin-only"><span class="icon"><i data-icon="wallet"></i></span>Kassen</button>
+  <button data-tab="team" class="admin-only"><span class="icon"><i data-icon="users"></i></span>Team</button>
+</nav>
+</div>
+
+<main>
+
+  <!-- ZÄHLEN -->
+  <section class="tab-panel active" id="panel-zaehlen">
+    <div class="m-section-title">Kasse wählen</div>
+    <div class="kasse-chips" id="kasse-chips"></div>
+    <p class="hint-text" id="keine-kassen" style="display:none;">Es sind noch keine Kassen angelegt. Ein Admin kann sie unter «Kassen» erfassen.</p>
+
+    <div id="zaehl-bereich" style="display:none;">
+      <div class="card zaehl-card">
+        <div class="zaehl-head"><i data-icon="banknote" data-size="16"></i> Noten</div>
+        <div id="rows-noten"></div>
+      </div>
+      <div class="card zaehl-card">
+        <div class="zaehl-head"><i data-icon="coins" data-size="16"></i> Münzen</div>
+        <div id="rows-muenzen"></div>
+      </div>
+
+      <div class="field">
+        <label for="bemerkung">Bemerkung (optional)</label>
+        <input type="text" id="bemerkung" maxlength="300" placeholder="z.B. Grund für eine Differenz">
+      </div>
+
+      <div class="summary-sticky">
+        <div class="card summary">
+          <div class="sum-line"><span>Gezählt</span><strong class="mono" id="sum-total">0.00</strong></div>
+          <div class="sum-line"><span>Stock</span><span class="mono" id="sum-stock">0.00</span></div>
+          <div class="sum-line diff" id="sum-diff-line"><span>Differenz</span><strong class="mono" id="sum-diff">±0.00</strong></div>
+          <div class="sum-actions">
+            <button class="btn btn-secondary" id="zaehl-reset" type="button"><i data-icon="refresh-cw" data-size="16"></i> Leeren</button>
+            <button class="btn btn-primary" id="zaehl-speichern" type="button"><i data-icon="save" data-size="16"></i> Speichern</button>
+          </div>
+          <div class="error-text" id="zaehl-error"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VERLAUF -->
+  <section class="tab-panel" id="panel-verlauf">
+    <div class="field" style="max-width:280px;">
+      <label for="verlauf-kasse">Kasse</label>
+      <select id="verlauf-kasse"><option value="">Alle Kassen</option></select>
+    </div>
+    <div id="verlauf-list"></div>
+    <button class="btn btn-secondary" id="verlauf-mehr" style="width:100%; display:none;">Ältere laden</button>
+  </section>
+
+  <!-- KASSEN (Admin) -->
+  <section class="tab-panel" id="panel-kassen">
+    <div class="card form-card">
+      <h3 class="section-title" id="kasse-form-title">Neue Kasse</h3>
+      <div class="form-row-2">
+        <div class="field"><label for="kasse-name">Name</label><input type="text" id="kasse-name" maxlength="40" placeholder="z.B. Ladenkasse"></div>
+        <div class="field"><label for="kasse-stock">Stock (CHF)</label><input type="text" id="kasse-stock" inputmode="decimal" placeholder="z.B. 300.00"></div>
+      </div>
+      <div class="error-text" id="kasse-error"></div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="kasse-abbrechen" type="button" style="display:none;">Abbrechen</button>
+        <button class="btn btn-primary" id="kasse-speichern" type="button">Kasse anlegen</button>
+      </div>
+    </div>
+    <div id="kassen-list"></div>
+  </section>
+
+  <!-- TEAM (Admin) -->
+  <section class="tab-panel" id="panel-team">
+    <div class="card form-card">
+      <h3 class="section-title">Neue Person</h3>
+      <div class="field"><label for="emp-name">Name</label><input type="text" id="emp-name" maxlength="60"></div>
+      <div class="field"><label for="emp-email">E-Mail</label><input type="email" id="emp-email"></div>
+      <div class="form-row-2">
+        <div class="field"><label for="emp-password">Passwort (temporär)</label><input type="text" id="emp-password" minlength="8"></div>
+        <div class="field">
+          <label for="emp-rolle">Rolle</label>
+          <select id="emp-rolle">
+            <option value="mitarbeiter">Mitarbeiter</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <span class="hint-text">Die Person muss das Passwort beim ersten Login selbst ändern.</span>
+      <div class="error-text" id="emp-error" style="margin-top:12px;"></div>
+      <button class="btn btn-primary" id="emp-speichern" type="button" style="width:100%; margin-top:8px;"><i data-icon="user-plus" data-size="16"></i> Person erstellen</button>
+    </div>
+    <div id="team-list"></div>
+  </section>
+
+</main>
+
+<!-- Modal: Zählung bestätigen -->
+<div class="modal-backdrop" id="confirm-modal">
+  <div class="modal-sheet">
+    <h3>Zählung speichern?</h3>
+    <div id="confirm-body"></div>
+    <p class="hint-text" style="margin:12px 0 16px;">Gespeicherte Zählungen können nicht mehr geändert werden. Bei einem Fehler einfach eine neue Zählung mit Bemerkung erfassen.</p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" id="confirm-cancel">Zurück</button>
+      <button type="button" class="btn btn-primary" id="confirm-ok">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Detail einer Zählung -->
+<div class="modal-backdrop" id="detail-modal">
+  <div class="modal-sheet">
+    <h3 id="detail-title">Zählung</h3>
+    <div id="detail-body"></div>
+    <button class="btn btn-secondary" id="detail-close" style="width:100%; margin-top:16px;">Schliessen</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
